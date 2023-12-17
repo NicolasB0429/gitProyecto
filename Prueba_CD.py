@@ -1,3 +1,4 @@
+#Prueba Cinematica Directa (VER)
 import numpy as np
 import roboticstoolbox as rtb
 
