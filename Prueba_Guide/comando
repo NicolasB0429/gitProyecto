@@ -1,0 +1,2 @@
+Comando para pasar de extension .ui a .py
+sudo python3 -m PyQt5.uic.pyuic -x nombre_archivo.ui -o nombre_archivo.py
