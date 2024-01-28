@@ -13,17 +13,16 @@ kit.servo[0].set_pulse_width_range(600, 2500)
 
 class robot:
     #Atributos
-    def __init__(self, nombre, l1, l2):
+    def __init__(self, nombre, l1, l2, pxInicial, pyInicial):
         self.nombre = nombre
         self.l1 = l1
         self.l2 = l2
-        #Variables globales clase
-        self.punto1 = 0
-        self.Pxpunto1 = 0
-        self.Pypunto1 = 0
+        #Coordenadas iniciales de cada metodo
+        self.pxInicial = pxInicial
+        self.pyInicial = pyInicial
+
     
     def coordenadas(self,xu,yu):
-        global punto1, Pxpunto1, Pypunto1
         # Cargar variables desde el archivo .mat
         contorno = loadmat('contorno.mat')
         # Acceder a las variables cargadas
@@ -35,15 +34,13 @@ class robot:
         flag1 = 0 #Comparacion seccion derecha
         flag2 = 0 #Comparacion seccion izquierda
 
-        if self.punto1 == 0:
-            self.Pxpunto1 = 20
-            self.Pypunto1 = 0
-            self.punto1 += 1
-
-        [theta1_P1, theta2_P1] = CI(self.l1, self.l2, self.Pxpunto1, self.Pypunto1);
+        Px1 = self.pxInicial
+        Py1 = self.pyInicial
+        theta1_P1, theta2_P1 = self.CI(Px1, Py1)
 
         Px2 = xu
         Py2 = yu
+        theta1_P2, theta2_P2 = self.CI(Px2, Py2)
 
         #Derecha abajo
         for i in range(len(x1y1)): 
@@ -73,79 +70,765 @@ class robot:
                     flag2 += 1
                     break
         
-        if flag1 == 2 or flag2 == 2:
-            [theta1_P2, theta2_P2] = CI(self.l1, self.l2, Px2, Py2)
-
+        if flag1 == 2 or flag2 == 2:           
             theta1P1_P2 = np.linspace(theta1_P1, theta1_P2, 1)
             theta2P1_P2 = np.linspace(theta2_P1, theta2_P2, 1)
 
             for i in range(len(theta1P1_P2)):
-                MTH = CD(self.l1, self.l2, theta1P1_P2[i], theta2P1_P2[i], self.nombre) 
-                kit.servo[0].angle= (theta1P1_P2[i]) #Servo 1
-                kit.servo[1].angle= (theta2P1_P2[i]) #Servo 2
+                # Realizar accion para la ultima iteracion
+                if i == len(theta1P1_P2) - 1: #Ultima Iteracion
+                    MTH = self.CD(theta1P1_P2[i], theta2P1_P2[i]) 
+                    kit.servo[0].angle= (theta1P1_P2[i]) #Servo 1
+                    kit.servo[1].angle= (theta2P1_P2[i]) #Servo 2
+                    #Guardar ultimas coordenadas, para el siguiente metodo
+                    self.pxInicial = MTH.t[0]
+                    self.pyInicial = MTH.t[1]
+                
+                # Realizar acci�n para las iteraciones anteriores a la �ltima
+                else: 
+                    MTH = self.CD(theta1P1_P2[i], theta2P1_P2[i]) 
+                    kit.servo[0].angle= (theta1P1_P2[i]) #Servo 1
+                    kit.servo[1].angle= (theta2P1_P2[i]) #Servo 2
 
         else:
-            print("No esta dentro del espacio de trabajo del Robot")
             #Aqui va la imagen de error que no esta dentro del espacio de trabajo del Robot
-        
-        self.Pxpunto1 = Px2
-        self.Pypunto1 = Py2
-
+            print("No esta dentro del espacio de trabajo del Robot")
+            
     def esp_trabajo(self):
+        #Cantidad de linspace y de iteraciones en los for
         can_puntos = 8
 
         theta1P1_P2 = 0
         theta2P1_P2 = np.linspace((5/6)*np.pi, 0, can_puntos)
         for i in range(len(can_puntos)):
-            MTH = CD(self.l1, self.l2, theta1P1_P2, theta2P1_P2[i], self.nombre) 
+            MTH = self.CD(theta1P1_P2, theta2P1_P2[i]) 
             kit.servo[0].angle= (theta1P1_P2) #Servo 1
             kit.servo[1].angle= (theta2P1_P2[i]) #Servo 2
             
         theta1P2_P3 = np.linspace(0, np.pi, can_puntos)
         theta2P2_P3 = 0
         for i in range(len(can_puntos)):
-            MTH = CD(self.l1, self.l2, theta1P2_P3[i], theta2P2_P3, self.nombre) 
+            MTH = self.CD(theta1P2_P3[i], theta2P2_P3) 
             kit.servo[0].angle= (theta1P2_P3[i]) #Servo 1
             kit.servo[1].angle= (theta2P2_P3) #Servo 2
 
         theta1P3_P4 = 0
         theta2P3_P4 = np.linspace(0, (5/6)*np.pi, can_puntos)
         for i in range(len(can_puntos)):
-            MTH = CD(self.l1, self.l2, theta1P3_P4, theta2P3_P4[i], self.nombre) 
-            kit.servo[0].angle= (theta1P3_P4) #Servo 1
-            kit.servo[1].angle= (theta2P3_P4[i]) #Servo 2
+            # Realizar accion para la ultima iteracion
+            if i == len(can_puntos) - 1: #Ultima Iteracion
+                MTH = self.CD(theta1P3_P4, theta2P3_P4[i]) 
+                kit.servo[0].angle= (theta1P3_P4) #Servo 1
+                kit.servo[1].angle= (theta2P3_P4[i]) #Servo 2
+                #Guardar ultimas coordenadas, para el siguiente metodo
+                self.pxInicial = MTH.t[0]
+                self.pyInicial = MTH.t[1]
+
+            # Realizar accion para las iteraciones anteriores a la ultima
+            else: 
+                MTH = self.CD(theta1P3_P4, theta2P3_P4[i]) 
+                kit.servo[0].angle= (theta1P3_P4) #Servo 1
+                kit.servo[1].angle= (theta2P3_P4[i]) #Servo 2
         
     def palabra(self, palabra):
-        print("Prueba")
+        #Cantidad de puntos para que llegue a coordenadas iniciales para escribir
+        can_puntos = 5
+
+        #Punto Iniciales
+        Px1 = self.pxInicial
+        Py1 = self.pxInicial
+        theta1_P1, theta2_P1 = self.CI(Px1, Py1)
+
+        #Coordenadas donde se comienza a escribir
+        Px2 = -13
+        Py2 = 11
+        theta1_P2, theta2_P2 = self.CI(Px2, Py2)
+
+        theta1P1_P2 = np.linspace(theta1_P1, theta1_P2, can_puntos)
+        theta2P1_P2 = np.linspace(theta2_P1, theta2_P2, can_puntos)
+
+        for i in range(len(can_puntos)):
+            MTH = self.CD(theta1P1_P2[i], theta2P1_P2[i])
+            kit.servo[0].angle= (theta1P1_P2[i]) #Servo 1
+            kit.servo[1].angle= (theta2P1_P2[i]) #Servo 2
+
+        #Esto es para que se guarden las ultimas coordenadas en pxInicial y pyInicial
+        self.pxInicial = Px2
+        self.pyInicial = Py2
+
+        if len(palabra)<=9:
+            for i in range(len(palabra)):
+                Pxf, Pyf = abecedario(palabra[i], self.pxInicial, self.pyInicial)
+                self.pxInicial = Pxf
+                self.pyInicial = Pyf
+
+        #Cuando la palabra es muu extensa        
+        else:
+            print("La palabra o nombre excede los 9 caracteres")
+        
+        #Funciion Interna Para la generacion de letras
+        def abecedario(letra, Px, Py):
+            #Numero de puntos de todas las letras
+            can_puntos = 3
+            #IMPORTANTE
+            lon = 2 #Esta variable hace lo largo de letra en este caso 2cm
+
+            #Generacion de todas las letras
+            if letra == 'a' or letra == 'A':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos) 
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos) 
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)  
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+
+            elif letra == 'b' or letra == 'B':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos) 
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos) 
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon/1, Px1, Py1, can_puntos)  
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon, Px1, Py1, can_puntos)  
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon+1, Px1, Py1, can_puntos)     
+                 
+            elif letra == 'c' or letra == 'C':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon ,Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon+1, Px1, Py1, can_puntos)
+
+            elif letra == 'd' or letra == 'D':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(lon/2, -lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(-lon/2, -lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon + 1, Px1, Py1, can_puntos)
+
+            elif letra == 'e' or letra == 'E':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon+1, Px1, Py1, can_puntos)
+
+            elif letra == 'f' or letra == 'F':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon+1, Px1, Py1, can_puntos)
+
+            elif letra == 'g' or letra == 'G':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+
+            elif letra == 'h' or letra == 'H':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+
+            elif letra == 'i' or letra == 'I':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+
+            elif letra == 'j' or letra == 'J':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_vertical(lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+
+            elif letra == 'k' or letra == 'K':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(lon, lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(-lon, -lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(lon, -lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                
+            elif letra == 'l' or letra == 'L':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+                
+            elif letra == 'm' or letra == 'M':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(lon/2, -lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(lon/2, lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+                
+            elif letra == 'n' or letra == 'N' or letra == 'ñ' or letra == 'Ñ':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(lon, -lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+                
+            elif letra == 'o' or letra == 'O':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon+1, Px1, Py1, can_puntos)
+         
+            elif letra == 'p' or letra == 'P':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon+1, Px1, Py1, can_puntos)     
+
+            elif letra == 'q' or letra == 'Q':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(-lon/2,lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(lon/2,-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+
+            elif letra == 'r' or letra == 'R':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(lon/2,-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+
+            elif letra == 's' or letra == 's':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+
+            elif letra == 't' or letra == 'T':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(lon/2, Px1, Py1, can_puntos)
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_horizontal(-lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                
+            elif letra == 'u' or letra == 'U':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon, Px1, Py1, can_puntos)
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+
+            elif letra == 'v' or letra == 'V':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(-lon/2, lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(lon/2, -lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(lon/2, lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(-lon/2, -lon, Px1, Py1, can_puntos)
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+
+            elif letra == 'w' or letra == 'W':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(lon/2, lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(lon/2, -lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_vertical(-lon, Px1, Py1, can_puntos)
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+
+            elif letra == 'x' or letra == 'X':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_diagonal(lon, lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(-lon/2, -lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(-lon/2, lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(lon, -lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon/2, Px1, Py1, can_puntos)
+
+            elif letra == 'y' or letra == 'Y':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_diagonal(lon, lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(-lon/2, -lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(-lon/2, lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(lon/2, -lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(-lon/2, -lon/2, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon+1, Px1, Py1, can_puntos)           
+
+            elif letra == 'z' or letra == 'Z':
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_diagonal(lon, lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(-lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_horizontal(lon, Px1, Py1, can_puntos)
+                Px1 = Pxf
+                Py1 = Pyf
+                Pxf, Pyf = linea_diagonal(-lon, -lon, Px1, Py1, can_puntos)
+                Px1 = Px
+                Py1 = Py
+                Pxf, Pyf = linea_horizontal(lon+1, Px1, Py1, can_puntos)
+
+            #Retorno de donde quedan las coordenadas
+            return Pxf, Pyf
+        
+        #Funcion Interna para lineas verticales
+        def linea_vertical(lon, Px1, Py1, can_puntos):
+            Pxf = Px1
+            Pyf = Py1 + lon
+
+            Px7_Pxf = Pxf
+            Py7_Pyf = np.linspace(Py1, Pyf, can_puntos)
+
+            for i in range(len(can_puntos)):
+                theta1, theta2 = self.CI(Px7_Pxf, Py7_Pyf[i])
+                MTH = self.CD(theta1, theta2)
+                kit.servo[0].angle= (theta1) #Servo 1
+                kit.servo[1].angle= (theta2) #Servo 2
             
+            #Retorno
+            return Pxf, Pyf
+        
+        #Funcion Interna para lineas horizontales
+        def linea_horizontal(lon, Px1, Py1, can_puntos):
+            Pxf = Px1 + lon
+            Pyf = Py1 
 
-#Cinematica Directa (Angulos a Coordenadas)
-def CD(l1, l2, theta1, theta2, nombre):
-    q = np.array([theta1, theta2])
+            Px7_Pxf = np.linspace(Px1, Pxf, can_puntos)
+            Py7_Pyf = Pyf
 
-    robot = SerialLink([
-        RevoluteDH(d=0, alpha=0, a=l1, offset=0),
-        RevoluteDH(d=0, alpha=0, a=l2, offset=0)
-    ], name= nombre)   
-    # Visualizar el robot, con sus limites 
-    robot.plot(q, limits= [-25, 25, -25, 25, 0, 5])
-    
-    MTH = robot.fkine(q)
-    return MTH
+            for i in range(len(can_puntos)):
+                theta1, theta2 = self.CI(Px7_Pxf[i], Py7_Pyf)
+                MTH = self.CD(theta1, theta2)
+                kit.servo[0].angle= (theta1) #Servo 1
+                kit.servo[1].angle= (theta2) #Servo 2
+            
+            #Retorno
+            return Pxf, Pyf
+        
+        #Funcion Interna para lineas horizontales
+        def linea_diagonal(lonx, lony, Px1, Py1, can_puntos):
+            Pxf = Px1 + lonx
+            Pyf = Py1 + lony
 
-#Cinematica Inversa (Coordenadas a Angulos)
-def CI(l1, l2, px, py):
-    b = np.sqrt(px**2 + py**2)
-    cos_theta2 = (b**2-l2**2-l1**2)/(2*l2*l1)
-    sen_theta2 = np.sqrt(1 - cos_theta2**2)
-    theta2 = np.arctan2(sen_theta2, cos_theta2)
-    print(f'Theta2 = {np.degrees(theta2):.3f} grados')
-    # Calcular alpha y phi para theta1
-    alpha = np.arctan2(py,px)
-    phi = np.arctan2(l2 * sen_theta2, l1 + l2 * cos_theta2)
-    # Calcular theta1
-    theta1 = alpha - phi
-    theta1 = theta1 + 2 * np.pi if theta1 <= -np.pi else theta1 #Otra forma de hacer el if
-    print(f'Theta1 = {np.degrees(theta1):.3f} grados')
-    #Retorno
-    return theta1,theta2
+            Px7_Pxf = np.linspace(Px1, Pxf, can_puntos)
+            Py7_Pyf = np.linspace(Py1, Pyf, can_puntos)
+
+            for i in range(len(can_puntos)):
+                theta1, theta2 = self.CI(Px7_Pxf[i], Py7_Pyf[i])
+                MTH = self.CD(theta1, theta2)
+                kit.servo[0].angle= (theta1) #Servo 1
+                kit.servo[1].angle= (theta2) #Servo 2
+            
+            #Retorno
+            return Pxf, Pyf
+
+    #Cinematica Directa (Angulos a Coordenadas)
+    def CD(self, theta1, theta2):
+        q = np.array([theta1, theta2])
+
+        robot = SerialLink([
+            RevoluteDH(d=0, alpha=0, a=self.l1, offset=0),
+            RevoluteDH(d=0, alpha=0, a=self.l2, offset=0)
+        ], name= self.nombre)   
+        # Visualizar el robot, con sus limites 
+        robot.plot(q, limits= [-25, 25, -25, 25, 0, 5])
+        
+        MTH = robot.fkine(q)
+        return MTH
+
+    #Cinematica Inversa (Coordenadas a Angulos)
+    def CI(self, px, py):
+        b = np.sqrt(px**2 + py**2)
+        cos_theta2 = (b**2-self.l2**2-self.l1**2)/(2*self.l2*self.l1)
+        sen_theta2 = np.sqrt(1 - cos_theta2**2)
+        theta2 = np.arctan2(sen_theta2, cos_theta2)
+        print(f'Theta2 = {np.degrees(theta2):.3f} grados')
+        # Calcular alpha y phi para theta1
+        alpha = np.arctan2(py,px)
+        phi = np.arctan2(self.l2 * sen_theta2, self.l1 + self.l2 * cos_theta2)
+        # Calcular theta1
+        theta1 = alpha - phi
+        theta1 = theta1 + 2 * np.pi if theta1 <= -np.pi else theta1 #Otra forma de hacer el if
+        print(f'Theta1 = {np.degrees(theta1):.3f} grados')
+        #Retorno
+        return theta1,theta2
