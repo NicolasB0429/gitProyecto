@@ -3,6 +3,7 @@ import roboticstoolbox as rtb
 from roboticstoolbox import RevoluteDH, SerialLink
 import matplotlib.pyplot as plt #Para plotear
 from scipy.io import loadmat #Cargar .mat
+import cv2 #Para generar contornos imagenes
 #Servos
 from adafruit_servokit import ServoKit
 from time import sleep
@@ -801,6 +802,122 @@ class robot:
             
             #Retorno
             return Pxf, Pyf
+
+    def imagenes(self, opcion):
+        #FIGURA 1
+        if opcion == 1:
+            #Leer la imagen en formato cv2
+            imagen = cv2.imread('robot_2R/imagenes/hyundai.png')
+            # Convertir la imagen a escala de grises
+            img_gris = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
+            # Aplicar suavizado Gaussiano (filtro) Imagen Filtrada
+            img_fil = cv2.GaussianBlur(img_gris, (5,5), 0) #El 0 calcula la Desviacion Estandar automaticamente
+            # Encontrar los contornos en la imagen (imagen, metodo, para que se almacenen todos los puntos)
+            contornos, _ = cv2.findContours(img_fil, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+
+            ofset=820
+            # COMTORMO #1
+            # Ajustar espejo, coordenadas y convertirlas en un array numpy
+            contorno1 = np.array([[(punto[0][0]/100)-10, ((punto[0][1]*-1+ofset)/100)+5] for punto in contornos[0]])
+            # Seleccionar cada n elemento y agregar el ultimo punto
+            contorno1 = np.vstack([contorno1[0::3], contorno1[-1]])
+
+            # COMTORMO #2
+            # Ajustar espejo, coordenadas y convertirlas en un array numpy
+            contorno2 = np.array([[(punto[0][0]/100)-10, ((punto[0][1]*-1+ofset)/100)+5] for punto in contornos[1]])
+            # Seleccionar cada n elemento y agregar el ultimo punto
+            contorno2 = np.vstack([contorno2[0::3], contorno2[-1]])
+
+            # COMTORMO #3
+            # Ajustar espejo, coordenadas y convertirlas en un array numpy
+            contorno3 = np.array([[(punto[0][0]/100)-10, ((punto[0][1]*-1+ofset)/100)+5] for punto in contornos[2]])
+            # Seleccionar cada n elemento y agregar el ultimo punto
+            contorno3 = np.vstack([contorno3[0::3], contorno3[-1]])
+
+            # COMTORMO #4
+            # Ajustar espejo, coordenadas y convertirlas en un array numpy
+            contorno4 = np.array([[(punto[0][0]/100)-10, ((punto[0][1]*-1+ofset)/100)+5] for punto in contornos[4]])
+            # Seleccionar cada n elemento y agregar el ultimo punto
+            contorno4 = np.vstack([contorno4[0::3], contorno4[-1]])
+
+            # COMTORMO #5
+            # Ajustar espejo, coordenadas y convertirlas en un array numpy
+            contorno5 = np.array([[(punto[0][0]/100)-10, ((punto[0][1]*-1+ofset)/100)+5] for punto in contornos[3]])
+            # Seleccionar cada n elemento y agregar el ultimo punto
+            contorno5 = np.vstack([contorno5[0::3], contorno5[-1]])
+
+            #CREO QUE ESTO NO IMPORTA (PROBAR)
+            # #Puntos iniciales
+            # Px1 = self.pxInicial
+            # Py1 = self.pyInicial
+            # theta1_P1, theta2_P1 = self.CI(Px1, Py1)
+
+            # Px2 = contorno1[-1,0]
+            # Py2 = contorno1[-1,1]
+            # theta1_P2, theta2_P2 = self.CI(Px2, Py2)
+
+            # theta1P1_P2 = np.linspace(theta1_P1, theta1_P2, 1)
+            # theta2P1_P2 = np.linspace(theta2_P1, theta2_P2, 1)
+
+            # for i in range(len(theta1P1_P2)):
+            #     MTH = self.CD(theta1P1_P2[i], theta2P1_P2[i]) 
+            #     kit.servo[0].angle= (theta1P1_P2[i]) #Servo 1
+            #     kit.servo[1].angle= (theta2P1_P2[i]) #Servo 2
+
+            #AHORA SI DIBUJAR CONTORNOS
+            #CONTORNO 1
+            for i in range(len(contorno1)):
+                theta1, theta2 = self.CI(contorno1[i][0],contorno1[i][1])
+                MTH = self.CD(theta1, theta2) 
+                kit.servo[0].angle= (theta1) #Servo 1
+                kit.servo[1].angle= (theta2) #Servo 2
+
+            #CONTORNO 2
+            for i in range(len(contorno2)):
+                theta1, theta2 = self.CI(contorno2[i][0],contorno2[i][1])
+                MTH = self.CD(theta1, theta2) 
+                kit.servo[0].angle= (theta1) #Servo 1
+                kit.servo[1].angle= (theta2) #Servo 2
+
+            #CONTORNO 3
+            for i in range(len(contorno3)):
+                theta1, theta2 = self.CI(contorno3[i][0],contorno3[i][1])
+                MTH = self.CD(theta1, theta2) 
+                kit.servo[0].angle= (theta1) #Servo 1
+                kit.servo[1].angle= (theta2) #Servo 2
+
+            #CONTORNO 4
+            for i in range(len(contorno4)):
+                theta1, theta2 = self.CI(contorno4[i][0],contorno4[i][1])
+                MTH = self.CD(theta1, theta2) 
+                kit.servo[0].angle= (theta1) #Servo 1
+                kit.servo[1].angle= (theta2) #Servo 2
+
+            #CONTORNO 5
+            for i in range(len(contorno5)):
+                #Ultima Iteracion
+                if i == len(contorno5) - 1: 
+                    theta1, theta2 = self.CI(contorno5[i][0],contorno5[i][1])
+                    MTH = self.CD(theta1, theta2) 
+                    kit.servo[0].angle= (theta1) #Servo 1
+                    kit.servo[1].angle= (theta2) #Servo 2
+                    #Guardar ultimas coordenadas, para el siguiente metodo
+                    self.pxInicial = MTH.t[0]
+                    self.pyInicial = MTH.t[1]
+                # Realizar accion para las iteraciones anteriores a la ultima
+                else: 
+                    theta1, theta2 = self.CI(contorno5[i][0],contorno5[i][1])
+                    MTH = self.CD(theta1, theta2) 
+                    kit.servo[0].angle= (theta1) #Servo 1
+                    kit.servo[1].angle= (theta2) #Servo 2
+
+        #FIGURA 2
+        elif opcion == 2:
+            print("Segunda figura")
+
+        #FIGURA 3
+        elif opcion == 3:
+            print("Tercera figura")
 
     #Cinematica Directa (Angulos a Coordenadas)
     def CD(self, theta1, theta2):

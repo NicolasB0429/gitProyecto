@@ -2,6 +2,7 @@ import numpy as np
 from roboticstoolbox import RevoluteDH, SerialLink
 import matplotlib.pyplot as plt
 
+#figure, axis =plt.subplots(1,2)
 
 def CD_Funcion_2R(l1, l2, theta1, theta2):
     q = np.array([theta1, theta2])
@@ -30,11 +31,9 @@ for i in range(len(theta2P1_P2)):
     MTH = CD_Funcion_2R(l1, l2, theta1P1_P2, theta2P1_P2[i])
     x1y1[i, 0] = MTH.t[0]
     x1y1[i, 1] = MTH.t[1]
-    #plt.gca().set_prop_cycle(None)  #(hold on)    
     # Dibujar un punto en el grafico
+    plt.figure("Trayectoria Robot")
     plt.plot(MTH.t[0], MTH.t[1], '*r')
 
-# Mantener la figura abierta
+# Mantener la figura abier
 plt.show(block=True)
-
-#plt.gca().set_prop_cycle('auto')  # (hold off)
