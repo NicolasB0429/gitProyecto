@@ -1,18 +1,24 @@
+import matplotlib
+matplotlib.use('Qt5Agg')
+
 import numpy as np
+import math
 import roboticstoolbox as rtb
 from roboticstoolbox import RevoluteDH, SerialLink
 import matplotlib.pyplot as plt #Para plotear
 from scipy.io import loadmat #Cargar .mat
 import cv2 #Para generar contornos imagenes
-#Servos
-from adafruit_servokit import ServoKit
-from time import sleep
-kit=ServoKit(channels=16)
-servo=16 #Se coloca cuantos canales se van a usar
-#Se puede cambiar el rango de actuacion del servo
-kit.servo[0].set_pulse_width_range(600, 2500)
 
-class robot:
+#Servos
+# from adafruit_servokit import ServoKit
+# from time import sleep
+# kit=ServoKit(channels=16)
+# servo=16 #Se coloca cuantos canales se van a usar
+# #Se puede cambiar el rango de actuacion del servo
+# kit.servo[0].set_pulse_width_range(600, 2500)
+# kit.servo[1].set_pulse_width_range(600, 2500)
+
+class Robot:
     #Atributos
     def __init__(self, nombre, l1, l2, pxInicial, pyInicial):
         self.nombre = nombre
@@ -22,10 +28,18 @@ class robot:
         self.pxInicial = pxInicial
         self.pyInicial = pyInicial
 
-    
+    #Funcion para mover los servos
+    def mover_servos(self, theta1, theta2):
+        # Convertir los �ngulos de radianes a grados (OPCIONAL)
+        theta1 = math.degrees(theta1)
+        theta2 = math.degrees(theta2)
+
+        # kit.servo[0].angle= (theta1) #Servo 1
+        # kit.servo[1].angle= (theta2) #Servo 2
+
     def coordenadas(self,xu,yu):
         # Cargar variables desde el archivo .mat
-        contorno = loadmat('contorno.mat')
+        contorno = loadmat('robot_2R/contorno.mat')
         # Acceder a las variables cargadas
         x1y1 = contorno['x1y1']
         x2y2 = contorno['x2y2']
@@ -72,101 +86,58 @@ class robot:
                     break
         
         if flag1 == 2 or flag2 == 2:           
-            theta1P1_P2 = np.linspace(theta1_P1, theta1_P2, 1)
-            theta2P1_P2 = np.linspace(theta2_P1, theta2_P2, 1)
+            theta1P1_P2 = np.linspace(theta1_P1, theta1_P2, 10)
+            theta2P1_P2 = np.linspace(theta2_P1, theta2_P2, 10)
 
             for i in range(len(theta1P1_P2)):
+                MTH = self.CD(theta1P1_P2[i], theta2P1_P2[i]) 
+                self.mover_servos(theta1P1_P2[i], theta2P1_P2[i])
+                plt.figure("Trayectoria Robot")
+                plt.plot(MTH.t[0], MTH.t[1], '*r')
                 # Realizar accion para la ultima iteracion
                 if i == len(theta1P1_P2) - 1: #Ultima Iteracion
-                    MTH = self.CD(theta1P1_P2[i], theta2P1_P2[i]) 
-                    kit.servo[0].angle= (theta1P1_P2[i]) #Servo 1
-                    kit.servo[1].angle= (theta2P1_P2[i]) #Servo 2
-                    #Guardar ultimas coordenadas, para el siguiente metodo
                     self.pxInicial = MTH.t[0]
-                    self.pyInicial = MTH.t[1]
-                
-                # Realizar acci�n para las iteraciones anteriores a la �ltima
-                else: 
-                    MTH = self.CD(theta1P1_P2[i], theta2P1_P2[i]) 
-                    kit.servo[0].angle= (theta1P1_P2[i]) #Servo 1
-                    kit.servo[1].angle= (theta2P1_P2[i]) #Servo 2
+                    self.pyInicial = MTH.t[1]  
 
+            # # Mantener la figura abier
+            # plt.show(block=True)            
         else:
             #Aqui va la imagen de error que no esta dentro del espacio de trabajo del Robot
             print("No esta dentro del espacio de trabajo del Robot")
             
     def esp_trabajo(self):
         #Cantidad de linspace y de iteraciones en los for
-        can_puntos = 8
+        can_puntos = 5
 
         theta1P1_P2 = 0
         theta2P1_P2 = np.linspace((5/6)*np.pi, 0, can_puntos)
-        for i in range(len(can_puntos)):
+        for i in range(can_puntos):
             MTH = self.CD(theta1P1_P2, theta2P1_P2[i]) 
-            kit.servo[0].angle= (theta1P1_P2) #Servo 1
-            kit.servo[1].angle= (theta2P1_P2[i]) #Servo 2
+            self.mover_servos(theta1P1_P2 , theta2P1_P2[i])
             
-        theta1P2_P3 = np.linspace(0, np.pi, can_puntos)
+        theta1P2_P3 = np.linspace(0, np.pi/2, can_puntos)
         theta2P2_P3 = 0
-        for i in range(len(can_puntos)):
+        for i in range(can_puntos):
             MTH = self.CD(theta1P2_P3[i], theta2P2_P3) 
-            kit.servo[0].angle= (theta1P2_P3[i]) #Servo 1
-            kit.servo[1].angle= (theta2P2_P3) #Servo 2
+            self.mover_servos(theta1P2_P3[i] , theta2P2_P3)
 
-        theta1P3_P4 = 0
-        theta2P3_P4 = np.linspace(0, (5/6)*np.pi, can_puntos)
-        for i in range(len(can_puntos)):
+        theta1P3_P4 = np.linspace(np.pi/2, np.pi, can_puntos)
+        theta2P3_P4 = 0
+        for i in range(can_puntos):
+            MTH = self.CD(theta1P3_P4[i], theta2P3_P4) 
+            self.mover_servos(theta1P3_P4[i] , theta2P3_P4)
+
+        theta1P4_P5 = np.pi
+        theta2P4_P5 = np.linspace(0, (5/6)*np.pi, can_puntos)
+        for i in range(can_puntos):
+            MTH = self.CD(theta1P4_P5, theta2P4_P5[i]) 
+            self.mover_servos(theta1P4_P5 , theta2P4_P5[i])
             # Realizar accion para la ultima iteracion
-            if i == len(can_puntos) - 1: #Ultima Iteracion
-                MTH = self.CD(theta1P3_P4, theta2P3_P4[i]) 
-                kit.servo[0].angle= (theta1P3_P4) #Servo 1
-                kit.servo[1].angle= (theta2P3_P4[i]) #Servo 2
-                #Guardar ultimas coordenadas, para el siguiente metodo
+            if i == can_puntos - 1: #Ultima Iteracion
                 self.pxInicial = MTH.t[0]
                 self.pyInicial = MTH.t[1]
-
-            # Realizar accion para las iteraciones anteriores a la ultima
-            else: 
-                MTH = self.CD(theta1P3_P4, theta2P3_P4[i]) 
-                kit.servo[0].angle= (theta1P3_P4) #Servo 1
-                kit.servo[1].angle= (theta2P3_P4[i]) #Servo 2
         
     def palabra(self, palabra):
-        #Cantidad de puntos para que llegue a coordenadas iniciales para escribir
-        can_puntos = 5
-
-        #Punto Iniciales
-        Px1 = self.pxInicial
-        Py1 = self.pxInicial
-        theta1_P1, theta2_P1 = self.CI(Px1, Py1)
-
-        #Coordenadas donde se comienza a escribir
-        Px2 = -13
-        Py2 = 11
-        theta1_P2, theta2_P2 = self.CI(Px2, Py2)
-
-        theta1P1_P2 = np.linspace(theta1_P1, theta1_P2, can_puntos)
-        theta2P1_P2 = np.linspace(theta2_P1, theta2_P2, can_puntos)
-
-        for i in range(len(can_puntos)):
-            MTH = self.CD(theta1P1_P2[i], theta2P1_P2[i])
-            kit.servo[0].angle= (theta1P1_P2[i]) #Servo 1
-            kit.servo[1].angle= (theta2P1_P2[i]) #Servo 2
-
-        #Esto es para que se guarden las ultimas coordenadas en pxInicial y pyInicial
-        self.pxInicial = Px2
-        self.pyInicial = Py2
-
-        if len(palabra)<=9:
-            for i in range(len(palabra)):
-                Pxf, Pyf = abecedario(palabra[i], self.pxInicial, self.pyInicial)
-                self.pxInicial = Pxf
-                self.pyInicial = Pyf
-
-        #Cuando la palabra es muu extensa        
-        else:
-            print("La palabra o nombre excede los 9 caracteres")
-        
         #Funciion Interna Para la generacion de letras
         def abecedario(letra, Px, Py):
             #Numero de puntos de todas las letras
@@ -760,11 +731,10 @@ class robot:
             Px7_Pxf = Pxf
             Py7_Pyf = np.linspace(Py1, Pyf, can_puntos)
 
-            for i in range(len(can_puntos)):
+            for i in range(can_puntos):
                 theta1, theta2 = self.CI(Px7_Pxf, Py7_Pyf[i])
                 MTH = self.CD(theta1, theta2)
-                kit.servo[0].angle= (theta1) #Servo 1
-                kit.servo[1].angle= (theta2) #Servo 2
+                self.mover_servos(theta1, theta2)
             
             #Retorno
             return Pxf, Pyf
@@ -777,11 +747,10 @@ class robot:
             Px7_Pxf = np.linspace(Px1, Pxf, can_puntos)
             Py7_Pyf = Pyf
 
-            for i in range(len(can_puntos)):
+            for i in range(can_puntos):
                 theta1, theta2 = self.CI(Px7_Pxf[i], Py7_Pyf)
                 MTH = self.CD(theta1, theta2)
-                kit.servo[0].angle= (theta1) #Servo 1
-                kit.servo[1].angle= (theta2) #Servo 2
+                self.mover_servos(theta1, theta2)
             
             #Retorno
             return Pxf, Pyf
@@ -794,17 +763,51 @@ class robot:
             Px7_Pxf = np.linspace(Px1, Pxf, can_puntos)
             Py7_Pyf = np.linspace(Py1, Pyf, can_puntos)
 
-            for i in range(len(can_puntos)):
+            for i in range(can_puntos):
                 theta1, theta2 = self.CI(Px7_Pxf[i], Py7_Pyf[i])
                 MTH = self.CD(theta1, theta2)
-                kit.servo[0].angle= (theta1) #Servo 1
-                kit.servo[1].angle= (theta2) #Servo 2
+                self.mover_servos(theta1, theta2)
             
             #Retorno
             return Pxf, Pyf
 
+        #Cantidad de puntos para que llegue a coordenadas iniciales para escribir
+        can_puntos = 5
+
+        #Punto Iniciales
+        Px1 = self.pxInicial
+        Py1 = self.pxInicial
+        theta1_P1, theta2_P1 = self.CI(Px1, Py1)
+
+        #Coordenadas donde se comienza a escribir
+        Px2 = -13
+        Py2 = 11
+        theta1_P2, theta2_P2 = self.CI(Px2, Py2)
+
+        theta1P1_P2 = np.linspace(theta1_P1, theta1_P2, can_puntos)
+        theta2P1_P2 = np.linspace(theta2_P1, theta2_P2, can_puntos)
+
+        for i in range(can_puntos):
+            MTH = self.CD(theta1P1_P2[i], theta2P1_P2[i])
+            self.mover_servos(theta1P1_P2[i], theta2P1_P2[i])
+
+        #Esto es para que se guarden las ultimas coordenadas en pxInicial y pyInicial
+        self.pxInicial = Px2
+        self.pyInicial = Py2
+
+        if len(palabra)<=9:
+            for i in range(len(palabra)):
+                Pxf, Pyf = abecedario(palabra[i], self.pxInicial, self.pyInicial)
+                self.pxInicial = Pxf
+                self.pyInicial = Pyf
+
+        #Cuando la palabra es muu extensa        
+        else:
+            print("La palabra o nombre excede los 9 caracteres")
+
     def imagenes(self, opcion):
-        #FIGURA 1
+        puntos = 3 #De a cada cuantos puntos se guarda
+        #FIGURA 1 Hyundai
         if opcion == 1:
             #Leer la imagen en formato cv2
             imagen = cv2.imread('robot_2R/imagenes/hyundai.png')
@@ -820,31 +823,31 @@ class robot:
             # Ajustar espejo, coordenadas y convertirlas en un array numpy
             contorno1 = np.array([[(punto[0][0]/100)-10, ((punto[0][1]*-1+ofset)/100)+5] for punto in contornos[0]])
             # Seleccionar cada n elemento y agregar el ultimo punto
-            contorno1 = np.vstack([contorno1[0::3], contorno1[-1]])
+            contorno1 = np.vstack([contorno1[0::puntos], contorno1[-1]])
 
             # COMTORMO #2
             # Ajustar espejo, coordenadas y convertirlas en un array numpy
             contorno2 = np.array([[(punto[0][0]/100)-10, ((punto[0][1]*-1+ofset)/100)+5] for punto in contornos[1]])
             # Seleccionar cada n elemento y agregar el ultimo punto
-            contorno2 = np.vstack([contorno2[0::3], contorno2[-1]])
+            contorno2 = np.vstack([contorno2[0::puntos], contorno2[-1]])
 
             # COMTORMO #3
             # Ajustar espejo, coordenadas y convertirlas en un array numpy
             contorno3 = np.array([[(punto[0][0]/100)-10, ((punto[0][1]*-1+ofset)/100)+5] for punto in contornos[2]])
             # Seleccionar cada n elemento y agregar el ultimo punto
-            contorno3 = np.vstack([contorno3[0::3], contorno3[-1]])
+            contorno3 = np.vstack([contorno3[0::puntos], contorno3[-1]])
 
             # COMTORMO #4
             # Ajustar espejo, coordenadas y convertirlas en un array numpy
             contorno4 = np.array([[(punto[0][0]/100)-10, ((punto[0][1]*-1+ofset)/100)+5] for punto in contornos[4]])
             # Seleccionar cada n elemento y agregar el ultimo punto
-            contorno4 = np.vstack([contorno4[0::3], contorno4[-1]])
+            contorno4 = np.vstack([contorno4[0::puntos], contorno4[-1]])
 
             # COMTORMO #5
             # Ajustar espejo, coordenadas y convertirlas en un array numpy
             contorno5 = np.array([[(punto[0][0]/100)-10, ((punto[0][1]*-1+ofset)/100)+5] for punto in contornos[3]])
             # Seleccionar cada n elemento y agregar el ultimo punto
-            contorno5 = np.vstack([contorno5[0::3], contorno5[-1]])
+            contorno5 = np.vstack([contorno5[0::puntos], contorno5[-1]])
 
             #CREO QUE ESTO NO IMPORTA (PROBAR)
             # #Puntos iniciales
@@ -869,56 +872,129 @@ class robot:
             for i in range(len(contorno1)):
                 theta1, theta2 = self.CI(contorno1[i][0],contorno1[i][1])
                 MTH = self.CD(theta1, theta2) 
-                kit.servo[0].angle= (theta1) #Servo 1
-                kit.servo[1].angle= (theta2) #Servo 2
+                self.mover_servos(theta1, theta2)
 
             #CONTORNO 2
             for i in range(len(contorno2)):
                 theta1, theta2 = self.CI(contorno2[i][0],contorno2[i][1])
-                MTH = self.CD(theta1, theta2) 
-                kit.servo[0].angle= (theta1) #Servo 1
-                kit.servo[1].angle= (theta2) #Servo 2
+                MTH = self.CD(theta1, theta2)
+                self.mover_servos(theta1, theta2) 
 
             #CONTORNO 3
             for i in range(len(contorno3)):
                 theta1, theta2 = self.CI(contorno3[i][0],contorno3[i][1])
                 MTH = self.CD(theta1, theta2) 
-                kit.servo[0].angle= (theta1) #Servo 1
-                kit.servo[1].angle= (theta2) #Servo 2
+                self.mover_servos(theta1, theta2)
 
             #CONTORNO 4
             for i in range(len(contorno4)):
                 theta1, theta2 = self.CI(contorno4[i][0],contorno4[i][1])
                 MTH = self.CD(theta1, theta2) 
-                kit.servo[0].angle= (theta1) #Servo 1
-                kit.servo[1].angle= (theta2) #Servo 2
+                self.mover_servos(theta1, theta2)
 
             #CONTORNO 5
             for i in range(len(contorno5)):
+                theta1, theta2 = self.CI(contorno5[i][0],contorno5[i][1])
+                MTH = self.CD(theta1, theta2) 
+                self.mover_servos(theta1, theta2)
                 #Ultima Iteracion
                 if i == len(contorno5) - 1: 
-                    theta1, theta2 = self.CI(contorno5[i][0],contorno5[i][1])
-                    MTH = self.CD(theta1, theta2) 
-                    kit.servo[0].angle= (theta1) #Servo 1
-                    kit.servo[1].angle= (theta2) #Servo 2
+                    #Guardar ultimas coordenadas, para el siguiente metodo
+                    self.pxInicial = MTH.t[0]
+                    self.pyInicial = MTH.t[1] 
+         
+        #FIGURA 2 Chevrolet
+        elif opcion == 2:
+            #Leer la imagen en formato cv2
+            imagen = cv2.imread('robot_2R/imagenes/chevrolet.png')
+
+            # Convertir la imagen a escala de grises
+            img_gris = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
+
+            # Aplicar suavizado Gaussiano (filtro) Imagen Filtrada
+            img_fil = cv2.GaussianBlur(img_gris, (5,5), 0) #El 0 calcula la Desviacion Estandar automaticamente
+
+            # Encontrar los contornos en la imagen (imagen, metodo, para que se almacenen todos los puntos)
+            contornos, _ = cv2.findContours(img_fil, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+            #print(len(contornos)) #Corroborar numero de contornos
+
+            ofset=500
+            # COMTORMO #1
+            # Ajustar espejo, coordenadas y convertirlas en un array numpy
+            contorno1 = np.array([[(punto[0][0]/100)-10, ((punto[0][1]*-1+ofset)/100)+10.5] for punto in contornos[0]])
+            # Seleccionar cada n elemento y agregar el ultimo punto
+            contorno1 = np.vstack([contorno1[0::puntos], contorno1[-1]])
+
+            # COMTORMO #2
+            # Ajustar espejo, coordenadas y convertirlas en un array numpy
+            contorno2 = np.array([[(punto[0][0]/100)-10, ((punto[0][1]*-1+ofset)/100)+10.5] for punto in contornos[1]])
+            # Seleccionar cada n elemento y agregar el ultimo punto
+            contorno2 = np.vstack([contorno2[0::puntos], contorno2[-1]])
+
+            #AHORA SI DIBUJAR CONTORNOS
+            #CONTORNO 1
+            for i in range(len(contorno1)):
+                theta1, theta2 = self.CI(contorno1[i][0],contorno1[i][1])
+                MTH = self.CD(theta1, theta2) 
+                self.mover_servos(theta1, theta2)
+
+            #CONTORNO 2
+            for i in range(len(contorno2)):
+                theta1, theta2 = self.CI(contorno2[i][0],contorno2[i][1])
+                MTH = self.CD(theta1, theta2) 
+                self.mover_servos(theta1, theta2)
+                #Ultima Iteracion
+                if i == len(contorno2) - 1: 
                     #Guardar ultimas coordenadas, para el siguiente metodo
                     self.pxInicial = MTH.t[0]
                     self.pyInicial = MTH.t[1]
-                # Realizar accion para las iteraciones anteriores a la ultima
-                else: 
-                    theta1, theta2 = self.CI(contorno5[i][0],contorno5[i][1])
-                    MTH = self.CD(theta1, theta2) 
-                    kit.servo[0].angle= (theta1) #Servo 1
-                    kit.servo[1].angle= (theta2) #Servo 2
-
-        #FIGURA 2
-        elif opcion == 2:
-            print("Segunda figura")
-
-        #FIGURA 3
+                    
+        #FIGURA 3 Tesla
         elif opcion == 3:
-            print("Tercera figura")
+            #Leer la imagen en formato cv2
+            imagen = cv2.imread('robot_2R/imagenes/tesla.png')
 
+            # Convertir la imagen a escala de grises
+            img_gris = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
+
+            # Aplicar suavizado Gaussiano (filtro) Imagen Filtrada
+            img_fil = cv2.GaussianBlur(img_gris, (5,5), 0) #El 0 calcula la Desviacion Estandar automaticamente
+
+            # Encontrar los contornos en la imagen (imagen, metodo, para que se almacenen todos los puntos)
+            contornos, _ = cv2.findContours(img_fil, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+            print(len(contornos)) #Corroborar numero de contornos
+
+            ofset=1500
+            # COMTORMO #1
+            # Ajustar espejo, coordenadas y convertirlas en un array numpy
+            contorno1 = np.array([[(punto[0][0]/100)-15, ((punto[0][1]*-1+ofset)/100)-5] for punto in contornos[0]])
+            # Seleccionar cada n elemento y agregar el ultimo punto
+            contorno1 = np.vstack([contorno1[0::puntos], contorno1[-1]])
+
+            # COMTORMO #2
+            # Ajustar espejo, coordenadas y convertirlas en un array numpy
+            contorno2 = np.array([[(punto[0][0]/100)-15, ((punto[0][1]*-1+ofset)/100)-5] for punto in contornos[1]])
+            # Seleccionar cada n elemento y agregar el ultimo punto
+            contorno2 = np.vstack([contorno2[0::puntos], contorno2[-1]])
+
+            #AHORA SI DIBUJAR CONTORNOS
+            #CONTORNO 1
+            for i in range(len(contorno1)):
+                theta1, theta2 = self.CI(contorno1[i][0],contorno1[i][1])
+                MTH = self.CD(theta1, theta2) 
+                self.mover_servos(theta1, theta2)
+
+            #CONTORNO 2
+            for i in range(len(contorno2)):
+                theta1, theta2 = self.CI(contorno2[i][0],contorno2[i][1])
+                MTH = self.CD(theta1, theta2) 
+                self.mover_servos(theta1, theta2)
+                #Ultima Iteracion
+                if i == len(contorno2) - 1: 
+                    #Guardar ultimas coordenadas, para el siguiente metodo
+                    self.pxInicial = MTH.t[0]
+                    self.pyInicial = MTH.t[1]
+    
     #Cinematica Directa (Angulos a Coordenadas)
     def CD(self, theta1, theta2):
         q = np.array([theta1, theta2])
